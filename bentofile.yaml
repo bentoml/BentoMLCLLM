@@ -1,0 +1,15 @@
+service: "service:MLCLLM"
+labels:
+  owner: bentoml-team
+  stage: demo
+include:
+- "service.py"
+- "pack_model.py"
+- "setup.sh"
+python:
+  requirements_txt: "./requirements.txt"
+  lock_packages: false
+docker:
+  python_version: "3.11"
+  cuda_version: "12.1"
+  setup_script: "./setup.sh"

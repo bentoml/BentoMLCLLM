@@ -1,0 +1,6 @@
+bentoml>=1.2.11
+transformers==4.40.2
+# add back after bentoml fix
+# --pre
+# -f https://mlc.ai/wheels
+# mlc-llm-nightly-cu121
