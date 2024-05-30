@@ -13,8 +13,14 @@ python3 -m pip install --pre -U -f https://mlc.ai/wheels mlc-llm-nightly-cu121 m
 ## Compile and pack the model
 
 ```bash
+# For 8B model
 git clone https://huggingface.co/mlc-ai/Llama-3-8B-Instruct-q0f16-MLC
 export MLC_MODEL_PATH=Llama-3-8B-Instruct-q0f16-MLC
+
+# For 70B model
+git clone https://huggingface.co/mlc-ai/Llama-3-70B-Instruct-q4f16_1-MLC
+export MLC_MODEL_PATH=Llama-3-70B-Instruct-q4f16_1-MLC
+
 export MODEL_LIB=$MLC_MODEL_PATH/lib.so
 mlc_llm compile $MLC_MODEL_PATH -o $MODEL_LIB --device cuda
 
