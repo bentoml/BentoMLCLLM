@@ -1,6 +1,8 @@
-bentoml>=1.2.11
-transformers==4.40.2
-# add back after bentoml fix
-# --pre
-# -f https://mlc.ai/wheels
-# mlc-llm-nightly-cu121
+bentoml>=1.4.2
+torch==2.6.0
+transformers==4.49.0
+--pre
+-f https://mlc.ai/wheels mlc-llm-nightly-cu123
+mlc-ai-nightly-cpu==0.20.dev83
+mlc-ai-nightly-cu123==0.20.dev82
+mlc-llm-nightly-cu123==0.20.dev4

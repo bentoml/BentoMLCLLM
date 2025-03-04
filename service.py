@@ -3,30 +3,30 @@ import uuid
 from typing import AsyncGenerator, Optional
 
 import bentoml
+import fastapi
 from annotated_types import Ge, Le
 from typing_extensions import Annotated
 
-from pack_model import BENTO_MODEL_TAG
 
+MAX_TOKENS = 2048
+MAX_NEW_TOKENS =1024
 
-MAX_TOKENS = 1024
 SYSTEM_PROMPT = """You are a helpful, respectful and honest assistant. Always answer as helpfully as possible, while being safe. Your answers should not include any harmful, unethical, racist, sexist, toxic, dangerous, or illegal content. Please ensure that your responses are socially unbiased and positive in nature.
 
 If a question does not make any sense, or is not factually coherent, explain why instead of answering something not correct. If you don't know the answer to a question, please don't share false information."""
 
-PROMPT_TEMPLATE = """<|begin_of_text|><|start_header_id|>system<|end_header_id|>
+MODEL_URL = "HF://mlc-ai/Llama-3.1-8B-Instruct-q0f16-MLC"
+MODEL_ID = "meta-llama/Meta-Llama-3.1-8B-Instruct"
 
-{system_prompt}<|eot_id|><|start_header_id|>user<|end_header_id|>
+openai_api_app = fastapi.FastAPI()
 
-{user_prompt}<|eot_id|><|start_header_id|>assistant<|end_header_id|>
+runtime_image = bentoml.images.PythonImage(python_version='3.11')\
+                              .requirements_file('requirements.txt'),
 
-"""
-
-MODEL_ID = "meta-llama/Meta-Llama-3-8B-Instruct"
-
-
+@bentoml.asgi_app(openai_api_app, path="/")
 @bentoml.service(
-    name="bentomlcllm-llama3-8b-insruct-service",
+    name="bentomlcllm-llama3.1-8b-insruct-service",
+    image=runtime_image,
     traffic={
         "timeout": 300,
     },
@@ -37,26 +37,39 @@ MODEL_ID = "meta-llama/Meta-Llama-3-8B-Instruct"
 )
 class MLCLLM:
 
-    bento_model_ref = bentoml.models.get(BENTO_MODEL_TAG)
-
-    def __init__(self) -> None:
+    @bentoml.on_startup
+    def init(self) -> None:
         from transformers import AutoTokenizer
-        from mlc_llm.serve import AsyncMLCEngine
+        from mlc_llm.serve import engine
+        from mlc_llm.serve.entrypoints import openai_entrypoints
+        from mlc_llm.serve.server import ServerContext
 
-        model_path = self.bento_model_ref.path
-        self.engine = AsyncMLCEngine(
-            model=model_path,
-            model_lib=os.path.join(model_path, "lib.so"),
-            mode="server"
+        self.engine = engine.AsyncMLCEngine(
+            model=MODEL_URL,
+            mode="server",
+            engine_config=engine.EngineConfig(
+                max_single_sequence_length=MAX_NEW_TOKENS,
+            )
         )
 
-        tokenizer = AutoTokenizer.from_pretrained(self.bento_model_ref.path)
+        self.tokenizer = AutoTokenizer.from_pretrained(MODEL_ID)
         self.stop_tokens = [
-            tokenizer.convert_ids_to_tokens(
-                tokenizer.eos_token_id,
+            self.tokenizer.convert_ids_to_tokens(
+                self.tokenizer.eos_token_id,
             ),
             "<|eot_id|>",
         ]
+
+        self.server_ctx = ServerContext()
+        self.server_ctx.__enter__()
+        self.server_ctx.add_model(MODEL_ID, self.engine)
+
+        openai_api_app.include_router(openai_entrypoints.app)
+
+
+    @bentoml.on_shutdown
+    def cleanup(self) -> None:
+        self.server_ctx.__exit__(GeneratorExit, None, None)
 
 
     @bentoml.api
@@ -64,7 +77,7 @@ class MLCLLM:
         self,
         prompt: str = "Explain superconductors in plain English",
         system_prompt: Optional[str] = SYSTEM_PROMPT,
-        max_tokens: Annotated[int, Ge(128), Le(MAX_TOKENS)] = MAX_TOKENS,
+        max_tokens: Annotated[int, Ge(128), Le(MAX_TOKENS)] = MAX_NEW_TOKENS,
     ) -> AsyncGenerator[str, None]:
 
         if system_prompt is None:
