@@ -1,6 +1,6 @@
 bentoml>=1.4.2
-torch==2.6.0
-transformers==4.49.0
+torch==2.7.0
+transformers==4.50.0
 --pre
 -f https://mlc.ai/wheels mlc-llm-nightly-cu123
 mlc-ai-nightly-cpu==0.20.dev83
